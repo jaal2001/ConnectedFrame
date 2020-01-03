@@ -1,71 +1,38 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from Tkinter import *
+from tkinter import *
 from os import putenv, getenv, system
-from PIL import Image, ImageTk 
-from glob import glob
+from PIL import Image, ImageTk
+from resizeimage import resizeimage
+import glob
+import sys
+import random
 
-dropbox_link = getenv("DROPBOX_LINK")
-download_interval = int(getenv("DOWNLOAD_INTERVAL_HOURS")) * 60 * 60 * 1000
-carousel_interval = int(getenv("CAROUSEL_INTERVAL_SECONDS")) * 1000
-frame_owner = getenv("FRAME_OWNER")
-ifttt_key = getenv("IFTTT_KEY")
+#Import OMXplayer wrapper for video
+from omxplayer.player import OMXPlayer
+from pathlib import Path
+from time import sleep
+import filetype
 
-base_path = "/usr/src/app/images/"
+
+carousel_interval = int(5) * 1000
+
+base_path = "/home/pi/Pictures/google/photos/*/*/*"
+prog_path = "/home/pi/ConnectedFrame"
 carrousel_status = True
 image_index = 0
 image_list = []
 initial_init = True
 
-def download_images(url):
-	archive = base_path + "temp.zip"
-
-	remove = "sudo rm -rf " + base_path + "*"
-	download = "wget -q  "+ url + " -O " + archive
-	extract = "unzip -o " + archive + " -d " + base_path
-
-	system(remove)
-	system(download)
-	system(extract)
-
-def resize_images():
-	images = list_images()
-
-	for file in images:
-		img = Image.open(file)
-		img = img.resize((640, 480), Image.ANTIALIAS)
-		img.save(file, "JPEG")
-
 def list_images():
 	images = []
 
-	dir = base_path + "*.jpg"
 
-	images = glob(dir)
+	dir = base_path
+
+	images = glob.glob(base_path, recursive=True)
 
 	return images
-
-def previous_image():
-	global image_index
-	image_index = image_index - 1
-
-	if image_index < 0:
-		image_index = len(image_list) - 1
-
-	image_path = image_list[image_index]
-
-	update_image(image_path)
-	
-def next_image():
-	global image_index
-	image_index = image_index + 1
-
-	if image_index > len(image_list) - 1:
-		image_index = 0
-
-	image_path = image_list[image_index]
-
-	update_image(image_path)
 
 def play_pause():
 	global carrousel_status
@@ -73,35 +40,63 @@ def play_pause():
 	carrousel_status = not carrousel_status
 
 	if(carrousel_status):
-		img = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/pause.png"))
+		img = ImageTk.PhotoImage(Image.open("/home/pi/ConnectedFrame/icons/pause.png"))
 	else:
-		img = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/play.png"))
-	
+		img = ImageTk.PhotoImage(Image.open("/home/pi/ConnectedFrame/icons/play.png"))
+
 	play_button.configure(image=img)
 	play_button.image = img
 
 def carrousel():
 	if(carrousel_status):
-		next_image()
+            global image_index
+            image_index = image_index + 1
+            if image_index > len(image_list) - 1:
+                image_index = 0
+            image_path = image_list[image_index]
+            image_path = random.choice(glob.glob(base_path, recursive=True))
+            update_image(image_path)
 
 	root.after(carousel_interval, carrousel)
 
 def update_image(image_path):
-	img = ImageTk.PhotoImage(Image.open(image_path))
-	center_label.configure(image=img)
-	center_label.image = img
+        # Check for video attempt - if filetype found play the video
+        kind = filetype.guess(image_path)
+        if ((kind.mime == "video/mp4") or (kind.mime == "video/x-m4v") or (kind.mime == "video/quicktime")):
+            # it takes about this long for omxplayer to warm up and start displaying a picture on a rpi3
+            player = OMXPlayer(image_path)
+            sleep(2.5)
+            player.set_position(5)
+            player.pause()
 
-	img = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/like.png"))
-	like_button.configure(image=img)
-	like_button.image = img
+            sleep(2)
+
+            player.set_aspect_mode('stretch')
+            # While we fit videos into the smaller frame, videos should use the whole screen
+            player.set_video_pos(0, 0, 800, 480)
+            try:
+                player.play()
+            except Exception:
+                sys.exc_clear()
+
+            sleep(5)
+
+            player.quit()
+
+        else:
+            img = Image.open(image_path)
+            #img = resizeimage.resize_thumbnail(img, [720, 480])
+            img = resizeimage.resize_contain(img, [720, 480])
+
+            img = ImageTk.PhotoImage(img)
+            center_label.configure(image=img,background='black')
+            center_label.image = img
 
 def initialize():
 	global image_list, carrousel_status, initial_init
 	current_carrousel_status = carrousel_status
 	carrousel_status = False
 
-	download_images(dropbox_link)
-	resize_images()
 	image_list = list_images()
 
 	carrousel_status = current_carrousel_status
@@ -110,53 +105,46 @@ def initialize():
 		initial_init = False
 		root.after(1000, initialize)
 	else:
-		root.after(download_interval, initialize)
+		root.after(1000, initialize)
 
 def send_event():
-	img = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/liked.png"))
-	like_button.configure(image=img)
-	like_button.image = img
-
-	command = "curl -X POST -H \"Content-Type: application/json\" -d '{\"value1\":\"" + frame_owner + "\",\"value2\":\"" + image_list[image_index] + "\"}' https://maker.ifttt.com/trigger/connectedframe_like/with/key/" + ifttt_key
-
-	system(command)
+        # This is where we allow to exit the GUI
+        img = ImageTk.PhotoImage(Image.open("/home/pi/ConnectedFrame/icons/liked.png"))
+        like_button.configure(image=img)
+        like_button.image = img
+        sys.exit()
 
 root = Tk()
 root.title('Connected Frame')
 root.geometry('{}x{}'.format(800, 480))
 root.attributes("-fullscreen", True)
 root.config(cursor='none')
+root.configure(background='black')
+root.configure(bg="black")
 
 initialize()
 
-left_column = Frame(root, bg='black', width=80, height=480)
-center_column = Frame(root, bg='black', width=640, height=480)
+center_column = Frame(root, bg='blue', width=720, height=480)
 right_column = Frame(root, bg='black', width=80, height=480)
 
-left_column.pack_propagate(0)
 center_column.pack_propagate(0)
 right_column.pack_propagate(0)
 
-left_column.grid(row=0, column=0, sticky="nsew")
-center_column.grid(row=0, column=1, sticky="nsew")
-right_column.grid(row=0, column=2, sticky="nsew")
+center_column.grid(row=0, column=0, sticky="nsew")
+right_column.grid(row=0, column=1, sticky="nsew")
 
-next_icon = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/next.png"))
-previous_icon = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/previous.png"))
-play_icon = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/pause.png"))
-like_icon = ImageTk.PhotoImage(Image.open("/usr/src/app/icons/like.png"))
+play_icon = ImageTk.PhotoImage(Image.open("/home/pi/ConnectedFrame/icons/pause.png"))
+like_icon = ImageTk.PhotoImage(Image.open("/home/pi/ConnectedFrame/icons/like.png"))
 
-previous_button = Button(left_column, image=previous_icon, borderwidth=0, background="black", foreground="white", activebackground="black", activeforeground="white", highlightthickness=0, command=previous_image)
-next_button = Button(left_column, image=next_icon, borderwidth=0, background="black", foreground="white", activebackground="black", activeforeground="white", highlightthickness=0, command=next_image)
-play_button = Button(right_column, image=play_icon, borderwidth=0, background="black", foreground="white", activebackground="black", activeforeground="white", highlightthickness=0, command=play_pause)
-like_button = Button(right_column, image=like_icon, borderwidth=0, background="black", foreground="white", activebackground="black", activeforeground="white", highlightthickness=0, command=send_event)
+play_button = Button(right_column, image=play_icon, borderwidth=0, background="black", foreground="white", activebackgro
+und="black", activeforeground="white", highlightthickness=0, command=play_pause)
+like_button = Button(right_column, image=like_icon, borderwidth=0, background="black", foreground="white", activebackgro
+und="black", activeforeground="white", highlightthickness=0, command=send_event)
 
 center_image = Image.open(image_list[0])
 center_photo = ImageTk.PhotoImage(center_image)
 center_label = Label(center_column, image=center_photo)
 
-previous_button.pack(fill=BOTH, expand=1)
-next_button.pack(fill=BOTH, expand=1)
 center_label.pack(side="bottom", fill=BOTH, expand=1)
 play_button.pack(fill=BOTH, expand=1)
 like_button.pack(fill=BOTH, expand=1)

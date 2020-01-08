@@ -8,13 +8,6 @@ import glob
 import sys
 import random
 
-#Import OMXplayer wrapper for video
-from omxplayer.player import OMXPlayer
-from pathlib import Path
-from time import sleep
-import filetype
-
-
 carousel_interval = int(5) * 1000
 
 # We need a strange path here, but this is the only way how I got it working
@@ -60,37 +53,12 @@ def carrousel():
 	root.after(carousel_interval, carrousel)
 
 def update_image(image_path):
-        # Check for video attempt - if filetype found play the video
-        kind = filetype.guess(image_path)
-        if ((kind.mime == "video/mp4") or (kind.mime == "video/x-m4v") or (kind.mime == "video/quicktime")):
-            # it takes about this long for omxplayer to warm up and start displaying a picture on a rpi3
-            player = OMXPlayer(image_path)
-            sleep(2.5)
-            player.set_position(5)
-            player.pause()
+	img = Image.open(image_path)
+	img = resizeimage.resize_contain(img, [720, 480])
 
-            sleep(2)
-
-            player.set_aspect_mode('stretch')
-            # While we fit videos into the smaller frame, videos should use the whole screen
-            player.set_video_pos(0, 0, 800, 480)
-            try:
-                player.play()
-            except Exception:
-                sys.exc_clear()
-
-            sleep(5)
-
-            player.quit()
-
-        else:
-            img = Image.open(image_path)
-            #img = resizeimage.resize_thumbnail(img, [720, 480])
-            img = resizeimage.resize_contain(img, [720, 480])
-
-            img = ImageTk.PhotoImage(img)
-            center_label.configure(image=img,background='black')
-            center_label.image = img
+	img = ImageTk.PhotoImage(img)
+	center_label.configure(image=img,background='black')
+	center_label.image = img
 
 def initialize():
 	global image_list, carrousel_status, initial_init

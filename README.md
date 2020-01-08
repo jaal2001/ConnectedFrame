@@ -1,13 +1,9 @@
-# Connected Picture Frame with resin.io
+# Picture Frame
 
-This project is about a digital picture frame aimed at family members, such as grandparents.
+This project is a fork from: https://github.com/fvdbosch/ConnectedFrame
 
-The idea is that parents taking pictures of their children, can easily share those pictures with the children's grandparents by making them appear on the picture frame automatically. In turn, the grandparents can "like" the pictures, letting the children's parents know which pictures are their favourites.
+The original project did contain dropbox and a voting feature, which was not needed by my project. So I stripped all not needed features, which gave the pictures some more room on the screen.
 
-By making use of a specific software framework called resin.io, multiple instances of this picture frame can be deployed for various family members, without hassle.
+I'm using https://github.com/gilesknap/gphotos-sync for downloading the pictures to the frame. According to the change rate, it could be sufficient to run the photos sync once a week. gphotos-sync allows to skip videos for download, which is a huge benefit for the picture frame.
 
-![Diagram](http://frederickvandenbosch.be/wp-content/uploads/2017/08/connectedframe-diagram.png)
-
-Details on how I created this project, can be found on element14: https://www.element14.com/community/community/raspberry-pi/raspberrypi_projects/blog/2017/08/28/connected-picture-frame
-
-![Result](http://frederickvandenbosch.be/wp-content/uploads/2017/08/IMG_5063.jpg)
+One of the next steps would be to update the application to enable videos also.

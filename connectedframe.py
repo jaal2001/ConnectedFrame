@@ -17,6 +17,7 @@ import filetype
 
 carousel_interval = int(5) * 1000
 
+# We need a strange path here, but this is the only way how I got it working
 base_path = "/home/pi/Pictures/google/photos/*/*/*"
 prog_path = "/home/pi/ConnectedFrame"
 carrousel_status = True
@@ -26,8 +27,7 @@ initial_init = True
 
 def list_images():
 	images = []
-
-
+	
 	dir = base_path
 
 	images = glob.glob(base_path, recursive=True)
@@ -116,6 +116,8 @@ def send_event():
 
 root = Tk()
 root.title('Connected Frame')
+
+#Set your screen size here and change all sizes in this script accordingly. As I use the 7" raspberry touch screen, this is the size.
 root.geometry('{}x{}'.format(800, 480))
 root.attributes("-fullscreen", True)
 root.config(cursor='none')
